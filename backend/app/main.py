@@ -347,17 +347,49 @@ def _load_artifacts(artifact_dir: Path) -> ArtifactStore:
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-ARTIFACT_DIR = _resolve_runtime_path(
-    os.getenv("ARTIFACT_DIR", "ml/artifacts/content_based_anime_v1"),
-    PROJECT_ROOT,
-)
-STORE = ArtifactStore(artifact_dir=ARTIFACT_DIR)
+
+
+def _load_env_file(env_path: Path) -> None:
+    if not env_path.exists():
+        return
+
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key:
+            os.environ.setdefault(key, value)
+
+
+def _get_artifact_dir() -> Path:
+    return _resolve_runtime_path(
+        os.getenv("ARTIFACT_DIR", "ml/artifacts/content_based_anime_v1"),
+        PROJECT_ROOT,
+    )
+
+
+def _get_allowed_origins() -> list[str]:
+    origins = [
+        origin.strip()
+        for origin in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+        if origin.strip()
+    ]
+    return origins or ["http://localhost:3000"]
+
+
+_load_env_file(PROJECT_ROOT / "backend" / ".env")
+STORE = ArtifactStore(artifact_dir=_get_artifact_dir())
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     global STORE
-    STORE = _load_artifacts(ARTIFACT_DIR)
+    _load_env_file(PROJECT_ROOT / "backend" / ".env")
+    STORE = _load_artifacts(_get_artifact_dir())
     yield
 
 
@@ -368,15 +400,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-_allowed_origins = [
-    origin.strip()
-    for origin in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
-    if origin.strip()
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_allowed_origins,
+    allow_origins=_get_allowed_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
