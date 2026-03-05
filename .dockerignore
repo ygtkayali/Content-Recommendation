@@ -1,0 +1,45 @@
+# ── Docker ignore ────────────────────────────
+# Keep the build context small: only ship what
+# the Dockerfile COPYs.
+
+# Version control
+.git
+.gitignore
+
+# Frontend (not part of backend container)
+frontend/
+
+# Documentation
+docs/
+*.md
+
+# Python caches
+**/__pycache__
+**/*.pyc
+**/*.pyo
+*.egg-info
+
+# ML experiments / notebooks (not needed at runtime)
+ml/experiments/
+ml/scripts/
+ml/README.md
+
+# Raw / staging data (only processed parquet is needed)
+data/raw/
+data/eval/
+data/features/
+data/snapshots/
+data/staging/
+data/README.md
+
+# Environment / IDE
+.env
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Large artifacts we don't need in Docker
+ml/artifacts/*/embedding_similarity.npy
+ml/artifacts/*/*.parquet
+data/processed/*.parquet

@@ -1,0 +1,22 @@
+# render.yaml – Infrastructure-as-Code for Render
+# https://docs.render.com/infrastructure-as-code
+
+services:
+  - type: web
+    name: streamsage-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    repo: https://github.com/YOUR_USERNAME/YOUR_REPO  # ← update this
+    plan: free                                         # or starter / standard
+    region: oregon
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: ALLOWED_ORIGINS
+        value: https://your-frontend-domain.com        # ← update after frontend deploy
+      - key: PORT
+        value: "10000"                                 # Render default
+      - key: ARTIFACT_DIR
+        value: ml/artifacts/content_based_anime_v1
+      - key: ANIME_SOURCE_DATA_PATH
+        value: data/processed/anime.csv

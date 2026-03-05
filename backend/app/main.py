@@ -14,7 +14,6 @@ import pandas as pd
 from fastapi import FastAPI, HTTPException, Path as PathParam, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from sklearn.metrics.pairwise import cosine_similarity
 
 
 class SearchItem(BaseModel):
@@ -187,10 +186,9 @@ def _apply_mmr(
             if not selected_indices:
                 diversity_penalty = 0.0
             else:
-                sims = cosine_similarity(
-                    embeddings[row_pos].reshape(1, -1),
-                    embeddings[selected_indices],
-                )[0]
+                selected_matrix = embeddings[selected_indices]
+                candidate_vec = embeddings[row_pos]
+                sims = selected_matrix @ candidate_vec
                 diversity_penalty = float(np.max(sims))
 
             mmr_score = lambda_mmr * relevance - (1.0 - lambda_mmr) * diversity_penalty
@@ -211,18 +209,24 @@ def _load_artifacts(artifact_dir: Path) -> ArtifactStore:
     store = ArtifactStore(artifact_dir=artifact_dir)
 
     try:
-        metadata_path = artifact_dir / "anime_metadata.parquet"
+        metadata_csv_path = artifact_dir / "anime_metadata.csv"
+        metadata_parquet_path = artifact_dir / "anime_metadata.parquet"
         embeddings_path = artifact_dir / "synopsis_embeddings.npy"
         similarity_path = artifact_dir / "embedding_similarity.npy"
         feature_arrays_path = artifact_dir / "feature_arrays.npz"
         config_path = artifact_dir / "config.json"
 
-        if not metadata_path.exists() or not embeddings_path.exists():
+        if not embeddings_path.exists():
+            raise FileNotFoundError("Required artifact missing: synopsis_embeddings.npy")
+        if not metadata_csv_path.exists() and not metadata_parquet_path.exists():
             raise FileNotFoundError(
-                "Required artifacts missing: anime_metadata.parquet and/or synopsis_embeddings.npy"
+                "Required artifact missing: anime_metadata.csv (or .parquet)"
             )
 
-        metadata = pd.read_parquet(metadata_path)
+        if metadata_csv_path.exists():
+            metadata = pd.read_csv(metadata_csv_path)
+        else:
+            metadata = pd.read_parquet(metadata_parquet_path)
         embeddings = np.load(embeddings_path)
 
         if len(metadata) != embeddings.shape[0]:
@@ -233,15 +237,22 @@ def _load_artifacts(artifact_dir: Path) -> ArtifactStore:
         if "anime_index" not in metadata.columns:
             metadata = metadata.reset_index().rename(columns={"index": "anime_index"})
 
-        source_data_path = _resolve_runtime_path(
-            os.getenv("ANIME_SOURCE_DATA_PATH", "data/processed/anime.parquet"),
-            PROJECT_ROOT,
-        )
+        source_data_env = os.getenv("ANIME_SOURCE_DATA_PATH", "data/processed/anime.csv")
+        source_data_path = _resolve_runtime_path(source_data_env, PROJECT_ROOT)
+
+        # Fallback: try .parquet if the configured path doesn't exist
+        if not source_data_path.exists() and source_data_path.suffix == ".csv":
+            alt = source_data_path.with_suffix(".parquet")
+            if alt.exists():
+                source_data_path = alt
 
         # Enrich lightweight artifact metadata with full anime columns when available.
         source_df: pd.DataFrame | None = None
         if source_data_path.exists():
-            source_df = pd.read_parquet(source_data_path)
+            if source_data_path.suffix == ".parquet":
+                source_df = pd.read_parquet(source_data_path)
+            else:
+                source_df = pd.read_csv(source_data_path)
 
             join_key = None
             if "anime_id" in metadata.columns and "anime_id" in source_df.columns:
@@ -357,9 +368,15 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+_allowed_origins = [
+    origin.strip()
+    for origin in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -555,7 +572,20 @@ def recommend(
     query_type = _norm_text(row[type_col]) if type_col else ""
     query_studio = _norm_text(row[studios_col]) if studios_col else ""
     query_source = _norm_text(row[source_col]) if source_col else ""
-    sims = cosine_similarity(embeddings[q_pos].reshape(1, -1), embeddings)[0]
+
+    n_total = len(df)
+    if n_total <= 1:
+        return []
+
+    top_k_mmr = max(top_k_mmr, limit)
+    n_candidates = min(top_k_mmr, n_total - 1)
+
+    # Embeddings are L2-normalized, so dot product equals cosine similarity.
+    sims = embeddings @ embeddings[q_pos]
+    sims[q_pos] = -1.0
+
+    top_indices = np.argpartition(sims, -n_candidates)[-n_candidates:]
+    top_indices = top_indices[np.argsort(sims[top_indices])[::-1]]
 
     bayes_norm = store.feature_arrays.get("bayesian_scores_norm")
     if bayes_norm is None or len(bayes_norm) != len(df):
@@ -564,37 +594,55 @@ def recommend(
     query_series = pd.Series({})
     weights = _compute_dynamic_weights(query_series)
 
-    candidates: list[dict[str, Any]] = []
-    for i in range(len(df)):
-        if i == q_pos:
-            continue
+    candidate_df = df.iloc[top_indices]
 
-        candidate = df.iloc[i]
-        candidate_genres = _parse_list(candidate[genres_col]) if genres_col else []
-        candidate_type = _norm_text(candidate[type_col]) if type_col else ""
-        candidate_studio = _norm_text(candidate[studios_col]) if studios_col else ""
-        candidate_source = _norm_text(candidate[source_col]) if source_col else ""
-        genre_jaccard = _jaccard(query_genres, candidate_genres)
-        type_match = 1.0 if query_type and query_type == candidate_type else 0.0
-        studio_match = 1.0 if query_studio and query_studio == candidate_studio else 0.0
-        source_match = 1.0 if query_source and query_source == candidate_source else 0.0
-        rating_norm = float(bayes_norm[i])
-
-        score = (
-            weights["embedding"] * float(sims[i])
-            + weights["genre"] * genre_jaccard
-            + weights["type"] * type_match
-            + weights["studio"] * studio_match
-            + weights["source"] * source_match
-            + weights["rating"] * rating_norm
+    if genres_col:
+        genre_scores = np.array(
+            [_jaccard(query_genres, _parse_list(value)) for value in candidate_df[genres_col].tolist()],
+            dtype=float,
         )
+    else:
+        genre_scores = np.zeros(len(top_indices), dtype=float)
 
+    if type_col and query_type:
+        type_values = np.array([_norm_text(value) for value in candidate_df[type_col].tolist()], dtype=object)
+        type_scores = (type_values == query_type).astype(float)
+    else:
+        type_scores = np.zeros(len(top_indices), dtype=float)
+
+    if studios_col and query_studio:
+        studio_values = np.array([_norm_text(value) for value in candidate_df[studios_col].tolist()], dtype=object)
+        studio_scores = (studio_values == query_studio).astype(float)
+    else:
+        studio_scores = np.zeros(len(top_indices), dtype=float)
+
+    if source_col and query_source:
+        source_values = np.array([_norm_text(value) for value in candidate_df[source_col].tolist()], dtype=object)
+        source_scores = (source_values == query_source).astype(float)
+    else:
+        source_scores = np.zeros(len(top_indices), dtype=float)
+
+    rating_scores = bayes_norm[top_indices].astype(float)
+    embed_scores = sims[top_indices].astype(float)
+
+    final_scores = (
+        weights["embedding"] * embed_scores
+        + weights["genre"] * genre_scores
+        + weights["type"] * type_scores
+        + weights["studio"] * studio_scores
+        + weights["source"] * source_scores
+        + weights["rating"] * rating_scores
+    )
+
+    candidates: list[dict[str, Any]] = []
+    for pos, row_pos in enumerate(top_indices.tolist()):
+        candidate = df.iloc[int(row_pos)]
         candidates.append(
             {
                 "id": int(candidate[id_col]),
-                "row_pos": i,
-                "title": str(candidate[title_col]) if title_col else str(i),
-                "score": float(score),
+                "row_pos": int(row_pos),
+                "title": str(candidate[title_col]) if title_col else str(row_pos),
+                "score": float(final_scores[pos]),
                 "poster_url": str(candidate[poster_col]) if poster_col and pd.notna(candidate[poster_col]) else None,
             }
         )
@@ -602,7 +650,6 @@ def recommend(
     ranked = pd.DataFrame(candidates).sort_values("score", ascending=False).reset_index(drop=True)
 
     if diversify:
-        top_k_mmr = max(top_k_mmr, limit)
         mmr_pool = ranked.head(top_k_mmr)
         ranked = _apply_mmr(mmr_pool, embeddings=embeddings, top_k=limit, lambda_mmr=lambda_mmr)
     else:
