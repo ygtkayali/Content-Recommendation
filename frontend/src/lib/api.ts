@@ -65,22 +65,26 @@ export function getTrending(
 
 // ── Available Genres (client-side constant) ───────────────
 export const ALL_GENRES = [
-  "Sci-Fi",
   "Action",
-  "Award Winning",
   "Adventure",
-  "Mystery",
-  "Drama",
-  "Supernatural",
-  "Fantasy",
-  "Sports",
-  "Romance",
+  "Animation",
   "Comedy",
-  "Slice of Life",
-  "Suspense",
-  "Gourmet",
-  "Avant Garde",
+  "Crime",
+  "Documentary",
+  "Drama",
+  "Family",
+  "Fantasy",
+  "Foreign",
+  "History",
   "Horror",
+  "Music",
+  "Mystery",
+  "Romance",
+  "Science Fiction",
+  "Thriller",
+  "TV Movie",
+  "War",
+  "Western",
 ] as const;
 
 /** Pick `count` random genres from the full list. */

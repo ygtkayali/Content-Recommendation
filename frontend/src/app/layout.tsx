@@ -14,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "StreamSage — Anime Recommendations",
+  title: "StreamSage — Movie Recommendations",
   description:
-    "Discover your next favorite anime with AI-powered content recommendations.",
+    "Discover your next favorite movie with AI-powered content recommendations.",
 };
 
 export default function RootLayout({

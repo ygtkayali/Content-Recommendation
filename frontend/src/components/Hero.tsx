@@ -16,7 +16,7 @@ export default function Hero({ item }: HeroProps) {
             StreamSage
           </h1>
           <p className="mt-3 text-lg text-gray-400">
-            Discover your next favorite anime with AI-powered recommendations.
+            Discover your next favorite movie with AI-powered recommendations.
           </p>
         </div>
       </div>

@@ -45,7 +45,7 @@ function SearchResults() {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search anime titles..."
+            placeholder="Search movie titles..."
             className="flex-1 rounded-l-lg border border-gray-700 bg-gray-900 px-4 py-3 text-white outline-none placeholder:text-gray-500 focus:border-emerald-500"
           />
           <button

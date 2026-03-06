@@ -42,7 +42,7 @@ export default function Navbar() {
               autoFocus
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Titles, genres..."
+              placeholder="Search movies..."
               className="w-48 rounded-l border border-gray-600 bg-black/70 px-3 py-1.5 text-sm text-white outline-none placeholder:text-gray-500 focus:border-emerald-500 md:w-64"
             />
             <button

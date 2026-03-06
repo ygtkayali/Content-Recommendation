@@ -11,20 +11,18 @@ export interface SearchItem {
 export interface ContentDetail {
   id: number;
   title: string;
-  english_name: string | null;
-  score: number | null;
+  overview: string | null;
   genres: string[];
-  synopsis: string | null;
-  type: string | null;
-  studios: string | null;
-  source: string | null;
-  popularity: number | null;
-  scored_by: number | null;
-  image_url: string | null;
-  aired: string | null;
-  premiered: string | null;
-  status: string | null;
-  rank: number | null;
+  keywords: string[];
+  actors: string[];
+  director: string | null;
+  collection: string | null;
+  vote_average: number | null;
+  vote_count: number | null;
+  runtime: number | null;
+  release_date: string | null;
+  language: string | null;
+  poster_url: string | null;
 }
 
 export interface RecommendationItem {
