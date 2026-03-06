@@ -17,6 +17,4 @@ services:
       - key: PORT
         value: "10000"                                 # Render default
       - key: ARTIFACT_DIR
-        value: ml/artifacts/content_based_anime_v1
-      - key: ANIME_SOURCE_DATA_PATH
-        value: data/processed/anime.csv
+        value: ml/artifacts/content_recommendation_v2

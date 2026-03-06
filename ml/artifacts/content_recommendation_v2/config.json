@@ -1,0 +1,37 @@
+{
+  "artifact_version": "content_based_movie_v1",
+  "model_name": "sentence-transformers/all-mpnet-base-v2",
+  "created_at": "2026-03-06T19:29:53.614689+00:00",
+  "columns": {
+    "title": "title",
+    "overview": "overview",
+    "genres": "genres",
+    "keywords": "keywords",
+    "actors": "top_5_actors",
+    "director": "director",
+    "collection": "collection_name",
+    "vote_average": "vote_average",
+    "vote_count": "vote_count",
+    "poster": "poster_path"
+  },
+  "weights": {
+    "embedding": 0.35,
+    "genre": 0.15,
+    "keyword": 0.15,
+    "actor": 0.1,
+    "director": 0.05,
+    "collection": 0.05,
+    "bayesian": 0.15
+  },
+  "bayesian": {
+    "C": 5.823146276510411,
+    "m": 59.0,
+    "normalized": true
+  },
+  "retrieval": {
+    "embedding_file": "overview_embeddings.npy",
+    "similarity_runtime": "dot_product",
+    "top_k_mmr_default": 40,
+    "lambda_mmr_default": 0.7
+  }
+}

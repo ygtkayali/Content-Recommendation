@@ -1,6 +1,6 @@
 # ── Content Recommendation Backend ──────────────────────────────
 # Multi-stage build: slim Python image with only runtime deps.
-# Deploys backend + ML artifacts together (~35 MB of data files).
+# Deploys backend + ML artifacts + recommendation pipeline.
 # Render sets $PORT at runtime; see render.yaml for service config.
 # ────────────────────────────────────────────────────────────────
 
@@ -30,15 +30,14 @@ COPY --from=builder /install /usr/local
 # ---- Application code ----
 COPY --chown=app:app backend/ /app/backend/
 
-# ---- ML artifacts (embeddings + metadata + features + config) ----
-COPY --chown=app:app ml/artifacts/content_based_anime_v1/ /app/ml/artifacts/content_based_anime_v1/
+# ---- ML recommendation pipeline (imported by backend) ----
+COPY --chown=app:app ml/scripts/recommendation_v1.py /app/ml/scripts/recommendation_v1.py
 
-# ---- Source data for metadata enrichment (Image URL, etc.) ----
-COPY --chown=app:app data/processed/anime.csv /app/data/processed/anime.csv
+# ---- ML artifacts (embeddings + metadata + features + config) ----
+COPY --chown=app:app ml/artifacts/content_recommendation_v2/ /app/ml/artifacts/content_recommendation_v2/
 
 # ---- Environment defaults (overridable at runtime) ----
-ENV ARTIFACT_DIR=ml/artifacts/content_based_anime_v1 \
-    ANIME_SOURCE_DATA_PATH=data/processed/anime.csv \
+ENV ARTIFACT_DIR=ml/artifacts/content_recommendation_v2 \
     ALLOWED_ORIGINS=* \
     PORT=10000 \
     PYTHONDONTWRITEBYTECODE=1 \

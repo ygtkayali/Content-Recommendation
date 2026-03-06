@@ -21,10 +21,14 @@ docs/
 
 # ML experiments / notebooks (not needed at runtime)
 ml/experiments/
-ml/scripts/
 ml/README.md
 
-# Raw / staging data (only processed parquet is needed)
+# ML scripts (allow recommendation_v1.py via exception below)
+ml/scripts/
+!ml/scripts/recommendation_v1.py
+
+# Raw / staging data (only artifacts are needed)
+data/
 data/raw/
 data/eval/
 data/features/
@@ -42,4 +46,3 @@ data/README.md
 # Large artifacts we don't need in Docker
 ml/artifacts/*/embedding_similarity.npy
 ml/artifacts/*/*.parquet
-data/processed/*.parquet
