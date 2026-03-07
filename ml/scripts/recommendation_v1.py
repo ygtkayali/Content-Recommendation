@@ -27,6 +27,8 @@ MIN_BAYES_SCORE_GATE = 0.60
 MIN_BAYES_WITH_STRONG_MATCH = 0.55
 MIN_STRONG_METADATA_GATE = 0.70
 RECENCY_DECAY_YEARS = 12.0
+BAYESIAN_PRIOR_VOTE_QUANTILE = 0.90
+BAYESIAN_MIN_PRIOR_VOTES = 400.0
 TITLE_FAMILY_MATCH_THRESHOLD = 0.50
 TITLE_STOPWORDS = {
     "the",
@@ -157,6 +159,74 @@ def load_metadata(artifact_dir: Path) -> pd.DataFrame:
     return pd.read_csv(metadata_csv)
 
 
+def recompute_bayesian_scores_norm(
+    ratings: pd.Series | np.ndarray,
+    votes: pd.Series | np.ndarray,
+    *,
+    prior_vote_quantile: float = BAYESIAN_PRIOR_VOTE_QUANTILE,
+    min_prior_votes: float = BAYESIAN_MIN_PRIOR_VOTES,
+) -> np.ndarray:
+    """Recompute Bayesian rating norms with a stronger vote prior.
+
+    The original artifacts used a 75th-percentile prior (`m≈59`), which lets
+    niche titles with ~100-200 votes retain disproportionately high Bayesian
+    scores. For inference, use a stronger prior so low-support catalog titles
+    need substantially more votes before receiving a large popularity-quality
+    boost.
+    """
+    ratings_arr = pd.to_numeric(pd.Series(ratings), errors="coerce").fillna(0.0).to_numpy(dtype=np.float64)
+    votes_arr = pd.to_numeric(pd.Series(votes), errors="coerce").fillna(0.0).clip(lower=0.0).to_numpy(dtype=np.float64)
+
+    valid = votes_arr > 0
+    if not np.any(valid):
+        return np.zeros_like(ratings_arr, dtype=np.float32)
+
+    global_mean = float(np.nanmean(ratings_arr[valid]))
+    prior_votes = max(
+        float(np.percentile(votes_arr[valid], prior_vote_quantile * 100.0)),
+        float(min_prior_votes),
+    )
+
+    bayesian_scores = np.where(
+        valid,
+        (votes_arr / (votes_arr + prior_votes)) * ratings_arr
+        + (prior_votes / (votes_arr + prior_votes)) * global_mean,
+        global_mean,
+    )
+
+    bayes_min = float(np.nanmin(bayesian_scores))
+    bayes_max = float(np.nanmax(bayesian_scores))
+    if bayes_max - bayes_min <= 1e-12:
+        return np.zeros_like(bayesian_scores, dtype=np.float32)
+
+    return ((bayesian_scores - bayes_min) / (bayes_max - bayes_min)).astype(np.float32)
+
+
+def recompute_item_feature_bayesian_norm(item_features: pd.DataFrame) -> pd.DataFrame:
+    """Refresh `bayesian_score_norm` from catalog vote stats when available."""
+    if item_features.empty:
+        return item_features
+
+    rating_col = None
+    vote_col = None
+    if {"catalog_score", "catalog_voted_by"}.issubset(item_features.columns):
+        rating_col = "catalog_score"
+        vote_col = "catalog_voted_by"
+    elif {"vote_average", "vote_count"}.issubset(item_features.columns):
+        rating_col = "vote_average"
+        vote_col = "vote_count"
+
+    if rating_col is None or vote_col is None:
+        return item_features
+
+    adjusted = item_features.copy()
+    adjusted["bayesian_score_norm"] = recompute_bayesian_scores_norm(
+        adjusted[rating_col],
+        adjusted[vote_col],
+    )
+    return adjusted
+
+
 def load_artifacts(
     artifact_dir: Path,
 ) -> tuple[pd.DataFrame, np.ndarray, np.ndarray, np.ndarray | None, dict[str, Any]]:
@@ -178,10 +248,15 @@ def load_artifacts(
     embeddings = np.load(embeddings_path).astype(np.float32)
     loaded_arrays = np.load(feature_arrays_path)
 
-    if "bayesian_scores_norm" not in loaded_arrays.files:
-        raise ValueError("feature_arrays.npz missing 'bayesian_scores_norm'.")
-
-    bayesian_scores_norm = loaded_arrays["bayesian_scores_norm"].astype(np.float32)
+    if {"vote_average", "vote_count"}.issubset(metadata.columns):
+        bayesian_scores_norm = recompute_bayesian_scores_norm(
+            metadata["vote_average"],
+            metadata["vote_count"],
+        )
+    else:
+        if "bayesian_scores_norm" not in loaded_arrays.files:
+            raise ValueError("feature_arrays.npz missing 'bayesian_scores_norm'.")
+        bayesian_scores_norm = loaded_arrays["bayesian_scores_norm"].astype(np.float32)
     recency_scores = None
     if "recency_scores" in loaded_arrays.files:
         recency_scores = loaded_arrays["recency_scores"].astype(np.float32)

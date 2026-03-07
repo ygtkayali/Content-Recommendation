@@ -30,6 +30,7 @@ from recommendation_v1 import (
     load_artifacts,
     normalize_weights,
     prepare_work_df,
+    recompute_item_feature_bayesian_norm,
 )
 
 
@@ -116,7 +117,8 @@ def load_item_features(data_root: Path) -> pd.DataFrame:
         if col not in item_features.columns:
             item_features[col] = 0.0
 
-    return item_features.set_index("movie_id", drop=False)
+    item_features = item_features.set_index("movie_id", drop=False)
+    return recompute_item_feature_bayesian_norm(item_features)
 
 
 # ---------------------------------------------------------------------------

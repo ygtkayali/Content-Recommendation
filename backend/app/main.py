@@ -30,6 +30,7 @@ from recommendation_v1 import (  # noqa: E402
     load_artifacts,
     prepare_work_df,
     recommend_by_index,
+    recompute_item_feature_bayesian_norm,
 )
 
 # ---------------------------------------------------------------------------
@@ -288,7 +289,8 @@ def _load_item_features(data_root: Path) -> pd.DataFrame:
         if col not in item_features.columns:
             item_features[col] = 0.0
 
-    return item_features.set_index("movie_id", drop=False)
+    item_features = item_features.set_index("movie_id", drop=False)
+    return recompute_item_feature_bayesian_norm(item_features)
 
 
 def _load_reranker_artifacts(reranker_dir: Path) -> tuple[Any, list[str]]:
