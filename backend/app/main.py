@@ -929,8 +929,11 @@ def recommend(
         idx = int(row["index"])
         score = float(
             row.get(
+                "reranker_score",
+                row.get(
                 "rerank_score",
-                row.get("quality_adjusted_score", row.get("final_score", 0)),
+                    row.get("quality_adjusted_score", row.get("final_score", 0)),
+                ),
             )
         )
         items.append(
