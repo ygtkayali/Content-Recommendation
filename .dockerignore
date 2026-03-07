@@ -29,6 +29,8 @@ ml/scripts/
 
 # Raw / staging data (only artifacts are needed)
 data/
+!data/processed/
+!data/processed/item_features.csv
 data/raw/
 data/eval/
 data/features/

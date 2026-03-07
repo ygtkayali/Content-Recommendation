@@ -3,3 +3,4 @@ uvicorn>=0.30.0
 gunicorn>=22.0.0
 pandas>=2.0.0
 numpy>=1.24.0
+lightgbm>=4.6.0

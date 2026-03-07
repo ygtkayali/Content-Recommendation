@@ -20,7 +20,11 @@ RUN pip install --no-cache-dir --prefix=/install -r requirements.txt \
 FROM python:3.13-slim
 
 # Non-root user for security
-RUN groupadd -r app && useradd -r -g app -d /app app
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libgomp1 \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd -r app \
+    && useradd -r -g app -d /app app
 
 WORKDIR /app
 
@@ -36,8 +40,12 @@ COPY --chown=app:app ml/scripts/recommendation_v1.py /app/ml/scripts/recommendat
 # ---- ML artifacts (embeddings + metadata + features + config) ----
 COPY --chown=app:app ml/artifacts/content_recommendation_v2/ /app/ml/artifacts/content_recommendation_v2/
 
+# ---- Lightweight reranker item features ----
+COPY --chown=app:app data/processed/item_features.csv /app/data/processed/item_features.csv
+
 # ---- Environment defaults (overridable at runtime) ----
 ENV ARTIFACT_DIR=ml/artifacts/content_recommendation_v2 \
+    DATA_ROOT=data \
     ALLOWED_ORIGINS=* \
     PORT=10000 \
     PYTHONDONTWRITEBYTECODE=1 \

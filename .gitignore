@@ -28,12 +28,15 @@ data/eval/
 data/features/
 data/snapshots/
 data/staging/
+data/processed/reranker_features_parts/
+data/raw/movie_data_1/
+data/processed/user_ratings.csv
 
 # ── ML artifacts that are too large for git ──
 # (embeddings + CSV metadata ARE committed for Docker build)
 ml/artifacts/*/embedding_similarity.npy
 ml/artifacts/*/*.parquet
-
+ml/artifacts/content_recommendation_v2/
 # ── Frontend ──
 frontend/node_modules/
 frontend/.next/
