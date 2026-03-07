@@ -36,7 +36,6 @@ data/processed/user_ratings.csv
 # (embeddings + CSV metadata ARE committed for Docker build)
 ml/artifacts/*/embedding_similarity.npy
 ml/artifacts/*/*.parquet
-ml/artifacts/content_recommendation_v2/
 # ── Frontend ──
 frontend/node_modules/
 frontend/.next/

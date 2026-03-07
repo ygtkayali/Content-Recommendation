@@ -1,0 +1,40 @@
+{
+  "feature_columns": [
+    "embedding_similarity",
+    "genre_overlap",
+    "keyword_overlap",
+    "actor_overlap",
+    "director_match",
+    "collection_match",
+    "candidate_avg_rating",
+    "candidate_rating_count",
+    "candidate_positive_ratio",
+    "candidate_bayesian_norm",
+    "candidate_popularity_rank",
+    "rating_count_log",
+    "score_diff",
+    "candidate_popularity_percentile",
+    "embedding_rank",
+    "similarity_percentile",
+    "title_token_overlap",
+    "genre_overlap_count",
+    "keyword_overlap_count",
+    "candidate_rating_cv",
+    "baseline_score"
+  ],
+  "label_gain": [
+    0,
+    1,
+    3,
+    7,
+    15
+  ],
+  "relevance_mapping": {
+    "5.0": 4,
+    "4.5": 3,
+    "4.0": 2,
+    "3.0-3.5": 1,
+    "<3.0 or unseen": 0
+  },
+  "stage1_candidates_per_query": 150
+}
